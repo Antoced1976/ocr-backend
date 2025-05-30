@@ -8,24 +8,25 @@
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
-      text-align: center;
       background-color: #f7f9fc;
+      text-align: center;
     }
-    h2 {
-      color: #333;
-      margin-bottom: 20px;
+    .hidden {
+      display: none;
     }
-    button {
-      padding: 20px 40px;
+    .vertical-buttons button {
+      display: block;
+      width: 80%;
+      margin: 10px auto;
+      padding: 20px;
       font-size: 18px;
       border: none;
       border-radius: 8px;
       background-color: #007bff;
       color: white;
       cursor: pointer;
-      margin: 10px;
     }
-    button:hover {
+    .vertical-buttons button:hover {
       background-color: #0056b3;
     }
     input[type="file"] {
@@ -39,55 +40,111 @@
       margin-top: 20px;
       white-space: pre-wrap;
     }
+    .privacy-link {
+      margin-top: 20px;
+      display: block;
+    }
+    .logo-large {
+      max-width: 60%;
+      margin: 20px auto;
+      display: block;
+    }
+    .logo-small {
+      max-width: 120px;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }
   </style>
 </head>
 <body>
-  <h2>Acquisizione documento d'identità</h2>
-  <p>Scatta una foto del fronte e del retro del documento</p>
 
-  <button id="scattaFronte">📷 Scatta Fronte</button>
-  <button id="scattaRetro">📷 Scatta Retro</button>
-  <input type="file" id="inputFronte" accept="image/*" capture="environment" />
-  <input type="file" id="inputRetro" accept="image/*" capture="environment" />
+  <!-- Pagina di benvenuto -->
+  <div id="welcome">
+    <h2>Benvenuto</h2>
+    <p>Per proseguire, ti chiediamo di accettare il consenso al trattamento dei dati personali.</p>
+    <a class="privacy-link" href="https://www.iubenda.com/privacy-policy/29095230" target="_blank">Leggi l'informativa privacy</a>
+	<img src="logo_cedfor.png" alt="Logo CEDFor" class="logo-large" />
+    <button onclick="prosegui()">✅ Accetto e proseguo</button>
+  </div>
 
-  <br><br>
-  <button id="inviaDati">📤 Invia a Cedfor</button>
+  <!-- Pagina di acquisizione nascosta inizialmente -->
+  <div id="scanner" class="hidden">
+    <img src="logo_cedfor.png" alt="Logo CEDFor" class="logo-small" />
+    <h2>Acquisizione documento d'identità</h2>
+    <p>Scatta una foto del fronte e del retro del documento e del codice fiscale</p>
 
-  <pre id="output"></pre>
+    <div class="vertical-buttons">
+      <button id="scattaFronte">📷 Scatta Fronte Documento</button>
+      <input type="file" id="inputFronte" accept="image/*" capture="environment" />
+
+      <button id="scattaRetro">📷 Scatta Retro Documento</button>
+      <input type="file" id="inputRetro" accept="image/*" capture="environment" />
+
+      <button id="scattaCfFronte">📷 Scatta CF Fronte</button>
+      <input type="file" id="inputCfFronte" accept="image/*" capture="environment" />
+
+      <button id="scattaCfRetro">📷 Scatta CF Retro</button>
+      <input type="file" id="inputCfRetro" accept="image/*" capture="environment" />
+
+      <button id="inviaDati">📤 Invia a Cedfor</button>
+    </div>
+
+    <pre id="output"></pre>
+  </div>
 
   <script>
+    function prosegui() {
+      document.getElementById('welcome').classList.add('hidden');
+      document.getElementById('scanner').classList.remove('hidden');
+    }
+
     let fileFronte = null;
     let fileRetro = null;
+    let fileCfFronte = null;
+    let fileCfRetro = null;
 
     document.getElementById('scattaFronte').addEventListener('click', () => {
       document.getElementById('inputFronte').click();
     });
-
     document.getElementById('scattaRetro').addEventListener('click', () => {
       document.getElementById('inputRetro').click();
+    });
+    document.getElementById('scattaCfFronte').addEventListener('click', () => {
+      document.getElementById('inputCfFronte').click();
+    });
+    document.getElementById('scattaCfRetro').addEventListener('click', () => {
+      document.getElementById('inputCfRetro').click();
     });
 
     document.getElementById('inputFronte').addEventListener('change', (e) => {
       fileFronte = e.target.files[0];
     });
-
     document.getElementById('inputRetro').addEventListener('change', (e) => {
       fileRetro = e.target.files[0];
     });
+    document.getElementById('inputCfFronte').addEventListener('change', (e) => {
+      fileCfFronte = e.target.files[0];
+    });
+    document.getElementById('inputCfRetro').addEventListener('change', (e) => {
+      fileCfRetro = e.target.files[0];
+    });
 
     document.getElementById('inviaDati').addEventListener('click', async () => {
-      if (!fileFronte || !fileRetro) {
-        alert('⚠️ Devi caricare sia fronte che retro del documento');
+      if (!fileFronte || !fileRetro || !fileCfFronte || !fileCfRetro) {
+        alert('⚠️ Devi caricare tutte e 4 le immagini: documento e CF fronte/retro');
         return;
       }
 
       const formData = new FormData();
-      formData.append('fronte', fileFronte);
-      formData.append('retro', fileRetro);
+      formData.append('documento_fronte', fileFronte);
+      formData.append('documento_retro', fileRetro);
+      formData.append('cf_fronte', fileCfFronte);
+      formData.append('cf_retro', fileCfRetro);
 
       document.getElementById('output').textContent = "📤 Invio in corso...";
 
-      const response = await fetch('/processa', {
+      const response = await fetch('http://192.168.1.200:5000/processa', {
         method: 'POST',
         body: formData
       });
@@ -95,7 +152,6 @@
       const result = await response.json();
       const testo = result.estratti || '';
 
-      // Verifica se mancano dati chiave
       const requiredFields = ['nome', 'cognome', 'codice fiscale'];
       const mancano = requiredFields.filter(field => !testo.toLowerCase().includes(field));
 
@@ -106,5 +162,6 @@
       }
     });
   </script>
+
 </body>
 </html>
